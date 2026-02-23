@@ -4,7 +4,7 @@
 // Purpose : Receives commands from chat or linked scripts and
 //           routes them to the appropriate sub-module.
 //
-// SETUP   : Drop ALL four drone_*.lsl scripts into the same
+// SETUP   : Drop ALL five drone_*.lsl scripts into the same
 //           object (drone prim), then click "Reset Scripts".
 //
 // CHAT    : Speak on /42 (default) to control the drone.
@@ -20,6 +20,7 @@ integer CMD_FPV_OFF           = 104;
 integer CMD_STATUS            = 105;
 integer CMD_SET_SPEED         = 106;
 integer CMD_SET_HEIGHT        = 107;
+integer CMD_RECALL            = 108;
 integer CMD_OBSTACLE_DETECTED = 200;
 integer CMD_OBSTACLE_CLEAR    = 201;
 
@@ -105,6 +106,11 @@ handleCommand(string raw)
             llOwnerSay("[Drone] Usage: height <metres>  (e.g. height 5)");
         }
     }
+    else if (verb == "recall")
+    {
+        broadcast(CMD_RECALL, "");
+        llOwnerSay("[Drone] Recalling to your position…");
+    }
     else if (verb == "help")
     {
         llOwnerSay("[Drone] Commands (speak on /" + (string)CHAT_CHANNEL + "):\n"
@@ -114,6 +120,7 @@ handleCommand(string raw)
             + "  fpv / fpv_off – toggle first-person camera\n"
             + "  speed <n>   – set flight speed in m/s\n"
             + "  height <n>  – set hover height in metres\n"
+            + "  recall      – fly back to your position\n"
             + "  status      – show current state\n"
             + "  help        – show this message");
     }
@@ -150,7 +157,7 @@ default
         // Re-broadcast any CMD_ values sent by external scripts
         // that are already loaded in this object (no-op if the
         // command came from one of our own sub-modules).
-        if (num >= CMD_START && num <= CMD_SET_HEIGHT)
+        if (num >= CMD_START && num <= CMD_RECALL)
             broadcast(num, str);
     }
 

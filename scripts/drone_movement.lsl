@@ -22,6 +22,7 @@ integer CMD_SET_SPEED         = 106;
 integer CMD_SET_HEIGHT        = 107;
 integer CMD_OBSTACLE_DETECTED = 200;
 integer CMD_OBSTACLE_CLEAR    = 201;
+integer CMD_RECALL            = 108;
 
 // ---- Movement configuration (owner-tunable via commands) ----
 float CFG_SPEED            = 3.5;    // Normal SL walking speed (m/s)
@@ -37,6 +38,7 @@ float CFG_MAX_FLIGHT_HEIGHT = 25.0;  // Maximum flight height above start Z (met
 integer gRunning   = FALSE;
 integer gHovering  = FALSE;
 integer gAvoiding  = FALSE;
+integer gRecalling = FALSE;
 
 vector  gStartPos  = ZERO_VECTOR;
 vector  gTargetPos = ZERO_VECTOR;
@@ -45,8 +47,9 @@ vector  gAvoidDir  = ZERO_VECTOR;
 // ---- Generate a random wander waypoint ----------------------
 vector randomWaypoint()
 {
-    float angle = llFrand(TWO_PI);
-    float dist  = 3.0 + llFrand(CFG_WANDER_RADIUS - 3.0);   // at least 3 m away
+    float angle  = llFrand(TWO_PI);
+    float radius = (CFG_WANDER_RADIUS == 0.0) ? 256.0 : CFG_WANDER_RADIUS;  // 0 = unlimited
+    float dist   = 3.0 + llFrand(radius - 3.0);              // at least 3 m away
 
     // Height: vary around CFG_HOVER_HEIGHT with some randomness
     float zOffset = CFG_HOVER_HEIGHT + llFrand(6.0) - 3.0;
@@ -106,9 +109,10 @@ default
         // ---- Start autonomous flight -------------------------
         if (num == CMD_START)
         {
-            gRunning  = TRUE;
-            gHovering = FALSE;
-            gAvoiding = FALSE;
+            gRunning   = TRUE;
+            gHovering  = FALSE;
+            gAvoiding  = FALSE;
+            gRecalling = FALSE;
             gStartPos  = llGetPos();
             gTargetPos = randomWaypoint();
             llSetTimerEvent(CFG_UPDATE_INTERVAL);
@@ -118,9 +122,10 @@ default
         // ---- Stop all movement ------------------------------
         else if (num == CMD_STOP)
         {
-            gRunning  = FALSE;
-            gHovering = FALSE;
-            gAvoiding = FALSE;
+            gRunning   = FALSE;
+            gHovering  = FALSE;
+            gAvoiding  = FALSE;
+            gRecalling = FALSE;
             llSetTimerEvent(0.0);
             stopMoving();
         }
@@ -128,8 +133,9 @@ default
         // ---- Hover in place ---------------------------------
         else if (num == CMD_HOVER)
         {
-            gHovering = TRUE;
-            gAvoiding = FALSE;
+            gHovering  = TRUE;
+            gAvoiding  = FALSE;
+            gRecalling = FALSE;
             hoverInPlace();
             llSetTimerEvent(1.0);   // Keep refreshing hold
         }
@@ -177,6 +183,23 @@ default
                 if (gRunning) moveTo(gTargetPos);
             }
         }
+
+        // ---- Recall to owner's position ---------------------
+        else if (num == CMD_RECALL)
+        {
+            gRunning   = FALSE;
+            gHovering  = FALSE;
+            gAvoiding  = FALSE;
+            gRecalling = TRUE;
+            list details = llGetObjectDetails(llGetOwner(), [OBJECT_POS]);
+            if (llGetListLength(details) > 0)
+            {
+                vector ownerPos = llList2Vector(details, 0);
+                gTargetPos = ownerPos + <0.0, 0.0, CFG_HOVER_HEIGHT>;
+                moveTo(gTargetPos);
+                llSetTimerEvent(CFG_UPDATE_INTERVAL);
+            }
+        }
     }
 
     timer()
@@ -184,6 +207,27 @@ default
         if (gHovering)
         {
             hoverInPlace();
+            return;
+        }
+
+        if (gRecalling)
+        {
+            // Track owner's live position in case they move during recall
+            list details = llGetObjectDetails(llGetOwner(), [OBJECT_POS]);
+            if (llGetListLength(details) > 0)
+            {
+                vector ownerPos = llList2Vector(details, 0);
+                gTargetPos = ownerPos + <0.0, 0.0, CFG_HOVER_HEIGHT>;
+                if (llVecMag(llGetPos() - gTargetPos) < CFG_WAYPOINT_REACH)
+                {
+                    gRecalling = FALSE;
+                    gHovering  = TRUE;
+                    hoverInPlace();
+                    llOwnerSay("[Drone] Recalled – hovering near owner.");
+                    return;
+                }
+                moveTo(gTargetPos);
+            }
             return;
         }
 
