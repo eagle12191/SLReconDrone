@@ -1,5 +1,6 @@
 // ============================================================
 // SL Recon Drone - Main Controller Module
+// File: drone_main.lsl
 // ============================================================
 // Purpose : Receives commands from chat or linked scripts and
 //           routes them to the appropriate sub-module.
@@ -23,6 +24,7 @@ integer CMD_SET_HEIGHT        = 107;
 integer CMD_RECALL            = 108;
 integer CMD_OBSTACLE_DETECTED = 200;
 integer CMD_OBSTACLE_CLEAR    = 201;
+integer CMD_DEBUG             = 109;  // Broadcast to toggle debug in all modules
 
 // ---- Configuration ------------------------------------------
 integer CHAT_CHANNEL = 42;   // Owner speaks on /42  (change if needed)
@@ -30,11 +32,18 @@ integer CHAT_CHANNEL = 42;   // Owner speaks on /42  (change if needed)
 // ---- Runtime state ------------------------------------------
 integer gRunning   = FALSE;
 integer gFPVActive = FALSE;
+integer DEBUG      = FALSE;   // Set TRUE via /42 debug on
 
 // ---- Helper: broadcast a command to all scripts in object ---
 broadcast(integer cmd, string data)
 {
     llMessageLinked(LINK_SET, cmd, data, NULL_KEY);
+}
+
+// ---- Debug helper -------------------------------------------
+dbg(string msg)
+{
+    if (DEBUG) llOwnerSay("[Main|DBG] " + msg);
 }
 
 // ---- Parse and act on a text command ------------------------
@@ -45,6 +54,7 @@ handleCommand(string raw)
 
     if (verb == "start")
     {
+        dbg("handleCommand: start");
         gRunning = TRUE;
         broadcast(CMD_START, "");
         broadcast(CMD_STATUS, "Drone started.");
@@ -52,6 +62,7 @@ handleCommand(string raw)
     }
     else if (verb == "stop")
     {
+        dbg("handleCommand: stop");
         gRunning   = FALSE;
         gFPVActive = FALSE;
         broadcast(CMD_STOP, "");
@@ -111,6 +122,26 @@ handleCommand(string raw)
         broadcast(CMD_RECALL, "");
         llOwnerSay("[Drone] Recalling to your position…");
     }
+    else if (verb == "debug")
+    {
+        string val = llList2String(parts, 1);
+        if (val == "on")
+        {
+            DEBUG = TRUE;
+            broadcast(CMD_DEBUG, "on");
+            llOwnerSay("[Drone] Debug logging ON.");
+        }
+        else if (val == "off")
+        {
+            DEBUG = FALSE;
+            broadcast(CMD_DEBUG, "off");
+            llOwnerSay("[Drone] Debug logging OFF.");
+        }
+        else
+        {
+            llOwnerSay("[Drone] Usage: debug on | debug off");
+        }
+    }
     else if (verb == "help")
     {
         llOwnerSay("[Drone] Commands (speak on /" + (string)CHAT_CHANNEL + "):\n"
@@ -121,6 +152,7 @@ handleCommand(string raw)
             + "  speed <n>   – set flight speed in m/s\n"
             + "  height <n>  – set hover height in metres\n"
             + "  recall      – fly back to your position\n"
+            + "  debug on/off – toggle debug logging\n"
             + "  status      – show current state\n"
             + "  help        – show this message");
     }
@@ -140,6 +172,7 @@ default
         llOwnerSay("[Drone] Main controller ready.  Speak on /"
                    + (string)CHAT_CHANNEL + " to control.  Try: /"
                    + (string)CHAT_CHANNEL + " help");
+        dbg("state_entry complete, listening on channel " + (string)CHAT_CHANNEL);
     }
 
     // Owner chat command
@@ -154,11 +187,14 @@ default
     // a companion HUD script (extend here as needed).
     link_message(integer sender, integer num, string str, key id)
     {
-        // Re-broadcast any CMD_ values sent by external scripts
-        // that are already loaded in this object (no-op if the
-        // command came from one of our own sub-modules).
-        if (num >= CMD_START && num <= CMD_RECALL)
-            broadcast(num, str);
+        // Only handle CMD_DEBUG targeted at this module.
+        // NOTE: Do NOT re-broadcast CMD_ range here – doing so causes an
+        // infinite link-message loop because llMessageLinked(LINK_SET,...)
+        // delivers back to the sender as well.
+        if (num == CMD_DEBUG)
+        {
+            DEBUG = (str == "on");
+        }
     }
 
     on_rez(integer start_param)

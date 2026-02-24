@@ -1,5 +1,6 @@
 // ============================================================
 // SL Recon Drone - FPV Camera Module
+// File: drone_camera.lsl
 // ============================================================
 // Gives the drone owner a first-person view from the drone's
 // perspective by continuously updating the camera position and
@@ -17,6 +18,7 @@
 // ---- Shared command constants (same in every module) --------
 integer CMD_FPV_ON  = 103;
 integer CMD_FPV_OFF = 104;
+integer CMD_DEBUG   = 109;
 
 // ---- FPV camera configuration -------------------------------
 float CFG_CAM_FORWARD_OFFSET = 0.2;    // Metres ahead of drone centre
@@ -29,6 +31,13 @@ float CFG_UPDATE_RATE        = 0.1;    // Camera refresh interval in seconds
 // ---- Runtime state ------------------------------------------
 integer gFPVActive      = FALSE;
 integer gPermsGranted   = FALSE;
+integer DEBUG           = FALSE;   // Toggled via /42 debug on
+
+// ---- Debug helper -------------------------------------------
+dbg(string msg)
+{
+    if (DEBUG) llOwnerSay("[Camera|DBG] " + msg);
+}
 
 // ---- Ask owner for camera control permission ----------------
 requestPermissions()
@@ -100,10 +109,12 @@ default
         {
             gPermsGranted = TRUE;
             llOwnerSay("[Camera] Camera permission granted.");
+            dbg("PERMISSION_CONTROL_CAMERA granted");
 
             // If FPV was already requested before perms were granted, start now
             if (gFPVActive)
             {
+                dbg("FPV was pending – starting camera update loop");
                 llSetTimerEvent(CFG_UPDATE_RATE);
                 updateCamera();
             }
@@ -111,6 +122,7 @@ default
         else
         {
             gPermsGranted = FALSE;
+            dbg("PERMISSION_CONTROL_CAMERA DENIED");
             llOwnerSay("[Camera] Camera permission denied – FPV unavailable.");
         }
     }
@@ -123,11 +135,13 @@ default
             gFPVActive = TRUE;
             if (!gPermsGranted)
             {
+                dbg("CMD_FPV_ON: no perms yet, requesting");
                 llOwnerSay("[Camera] Requesting camera permission – please Accept.");
                 requestPermissions();
             }
             else
             {
+                dbg("CMD_FPV_ON: starting camera update loop");
                 llSetTimerEvent(CFG_UPDATE_RATE);
                 updateCamera();
                 llOwnerSay("[Camera] FPV enabled.");
@@ -137,7 +151,14 @@ default
         // ---- Disable FPV ------------------------------------
         else if (num == CMD_FPV_OFF)
         {
+            dbg("CMD_FPV_OFF: releasing camera");
             releaseCamera();
+        }
+
+        // ---- Debug toggle -----------------------------------
+        else if (num == CMD_DEBUG)
+        {
+            DEBUG = (str == "on");
         }
     }
 

@@ -1,5 +1,6 @@
 // ============================================================
 // SL Recon Drone - Menu Module
+// File: drone_menu.lsl
 // ============================================================
 // Opens a popup dialog when the owner touches the drone.
 // Buttons map directly to drone commands; Speed and Height
@@ -14,6 +15,7 @@
 //   [ Height... ] [ Speed...  ] [   Start  ]
 //   [ Recall    ] [ Hover     ] [   Stop   ]
 //   [ Status    ] [ FPV Off   ] [  FPV On  ]
+//   [  (space)  ] [ Dbg Off   ] [  Dbg On  ]
 //
 // ============================================================
 
@@ -27,6 +29,7 @@ integer CMD_STATUS     = 105;
 integer CMD_SET_SPEED  = 106;
 integer CMD_SET_HEIGHT = 107;
 integer CMD_RECALL     = 108;
+integer CMD_DEBUG      = 109;
 
 // ---- Menu button labels (max 24 chars each) -----------------
 string BTN_START   = "Start";
@@ -38,6 +41,8 @@ string BTN_FPV_OFF = "FPV Off";
 string BTN_SPEED   = "Speed...";
 string BTN_HEIGHT  = "Height...";
 string BTN_STATUS  = "Status";
+string BTN_DBG_ON  = "Dbg On";
+string BTN_DBG_OFF = "Dbg Off";
 
 // ---- Pending text-box input type ----------------------------
 integer PENDING_NONE   = 0;
@@ -77,7 +82,8 @@ openMenu()
         "\n=== Recon Drone ===\n\nChoose a command:",
         [BTN_STATUS, BTN_FPV_OFF, BTN_FPV_ON,
          BTN_RECALL, BTN_HOVER,   BTN_STOP,
-         BTN_HEIGHT, BTN_SPEED,   BTN_START],
+         BTN_HEIGHT, BTN_SPEED,   BTN_START,
+         " ",        BTN_DBG_OFF, BTN_DBG_ON],
         gChannel);
 }
 
@@ -102,6 +108,8 @@ handleButton(string btn)
     else if (btn == BTN_FPV_ON)  llMessageLinked(LINK_SET, CMD_FPV_ON,  "", NULL_KEY);
     else if (btn == BTN_FPV_OFF) llMessageLinked(LINK_SET, CMD_FPV_OFF, "", NULL_KEY);
     else if (btn == BTN_STATUS)  llMessageLinked(LINK_SET, CMD_STATUS,  "", NULL_KEY);
+    else if (btn == BTN_DBG_ON)  { llMessageLinked(LINK_SET, CMD_DEBUG, "on",  NULL_KEY); llOwnerSay("[Menu] Debug logging ON.");  }
+    else if (btn == BTN_DBG_OFF) { llMessageLinked(LINK_SET, CMD_DEBUG, "off", NULL_KEY); llOwnerSay("[Menu] Debug logging OFF."); }
     else if (btn == BTN_SPEED)
     {
         // openTextBox keeps a listen open – return without closeListens()

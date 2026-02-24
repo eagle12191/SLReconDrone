@@ -1,5 +1,6 @@
 // ============================================================
 // SL Recon Drone - Sensor / Obstacle Detection Module
+// File: drone_sensor.lsl
 // ============================================================
 // Casts rays ahead of the drone to detect obstacles and
 // broadcasts avoidance vectors to the movement module.
@@ -14,6 +15,7 @@ integer CMD_START             = 100;
 integer CMD_STOP              = 101;
 integer CMD_OBSTACLE_DETECTED = 200;
 integer CMD_OBSTACLE_CLEAR    = 201;
+integer CMD_DEBUG             = 109;
 
 // ---- Sensor configuration -----------------------------------
 float   CFG_SCAN_INTERVAL  = 0.5;    // Seconds between ray scans
@@ -24,6 +26,13 @@ float   CFG_SENSOR_ARC     = PI_BY_TWO; // Sensor arc (90 degrees forward cone)
 // ---- Runtime state ------------------------------------------
 integer gRunning         = FALSE;
 integer gObstaclePresent = FALSE;
+integer DEBUG            = FALSE;   // Toggled via /42 debug on
+
+// ---- Debug helper -------------------------------------------
+dbg(string msg)
+{
+    if (DEBUG) llOwnerSay("[Sensor|DBG] " + msg);
+}
 
 // ---- Cast rays and compute avoidance direction --------------
 detectObstacles()
@@ -55,7 +64,18 @@ detectObstacles()
         if (hitCount > 0)
         {
             // Each hit entry: [key, vector hitPos, vector hitNormal]
+            vector hitPos    = llList2Vector(result, 1);
             vector hitNormal = llList2Vector(result, 2);
+
+            // Ignore ground-plane hits: a nearly-upward normal whose hit point
+            // is at or below the drone's own altitude is just terrain beneath
+            // the flight path – not a real forward obstacle.
+            if (hitNormal.z > 0.85 && hitPos.z <= pos.z + 0.5)
+            {
+                dbg("ray dir[" + (string)i + "] ground-plane hit ignored (z="
+                    + (string)hitPos.z + "  droneZ=" + (string)pos.z + ")");
+                jump next_ray;
+            }
 
             // Avoidance direction: reflect off surface + climb component
             vector avoidDir = llVecNorm(hitNormal + <0.0, 0.0, 0.6>);
@@ -63,6 +83,8 @@ detectObstacles()
             if (!gObstaclePresent)
             {
                 gObstaclePresent = TRUE;
+                dbg("ray hit on dir[" + (string)i + "]  normal=" + (string)hitNormal
+                    + "  avoidDir=" + (string)avoidDir);
                 llMessageLinked(LINK_SET,
                                 CMD_OBSTACLE_DETECTED,
                                 (string)avoidDir,
@@ -70,12 +92,14 @@ detectObstacles()
             }
             return;   // First hit is enough to trigger avoidance
         }
+        @next_ray;
     }
 
     // No rays hit anything – clear the obstacle flag
     if (gObstaclePresent)
     {
         gObstaclePresent = FALSE;
+        dbg("all rays clear – sending OBSTACLE_CLEAR");
         llMessageLinked(LINK_SET, CMD_OBSTACLE_CLEAR, "", NULL_KEY);
     }
 }
@@ -95,6 +119,8 @@ default
         {
             gRunning         = TRUE;
             gObstaclePresent = FALSE;
+            dbg("CMD_START: sensor scanning started, interval=" + (string)CFG_SCAN_INTERVAL
+                + "  range=" + (string)CFG_SENSOR_RANGE);
             llSetTimerEvent(CFG_SCAN_INTERVAL);
             // Secondary sensor: detect nearby physical/moving objects
             llSensorRepeat("", NULL_KEY, ACTIVE | PASSIVE | SCRIPTED,
@@ -105,8 +131,13 @@ default
         {
             gRunning         = FALSE;
             gObstaclePresent = FALSE;
+            dbg("CMD_STOP: sensor scanning halted.");
             llSetTimerEvent(0.0);
             llSensorRemove();
+        }
+        else if (num == CMD_DEBUG)
+        {
+            DEBUG = (str == "on");
         }
     }
 
@@ -130,6 +161,7 @@ default
         if (!gObstaclePresent)
         {
             gObstaclePresent = TRUE;
+            dbg("llSensor hit: obst=" + (string)obstaclePos + "  awayDir=" + (string)awayDir);
             llMessageLinked(LINK_SET,
                             CMD_OBSTACLE_DETECTED,
                             (string)awayDir,

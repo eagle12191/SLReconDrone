@@ -1,5 +1,6 @@
 // ============================================================
 // SL Recon Drone - Movement Module
+// File: drone_movement.lsl
 // ============================================================
 // Handles autonomous flight:
 //   • Random wandering within a configurable radius
@@ -23,6 +24,7 @@ integer CMD_SET_HEIGHT        = 107;
 integer CMD_OBSTACLE_DETECTED = 200;
 integer CMD_OBSTACLE_CLEAR    = 201;
 integer CMD_RECALL            = 108;
+integer CMD_DEBUG             = 109;
 
 // ---- Movement configuration (owner-tunable via commands) ----
 float CFG_SPEED            = 3.5;    // Normal SL walking speed (m/s)
@@ -39,6 +41,7 @@ integer gRunning   = FALSE;
 integer gHovering  = FALSE;
 integer gAvoiding  = FALSE;
 integer gRecalling = FALSE;
+integer DEBUG      = FALSE;   // Toggled via /42 debug on
 
 vector  gStartPos  = ZERO_VECTOR;
 vector  gTargetPos = ZERO_VECTOR;
@@ -56,22 +59,36 @@ vector randomWaypoint()
     if (zOffset < CFG_MIN_FLIGHT_HEIGHT) zOffset = CFG_MIN_FLIGHT_HEIGHT;
     if (zOffset > CFG_MAX_FLIGHT_HEIGHT) zOffset = CFG_MAX_FLIGHT_HEIGHT;
 
-    return <gStartPos.x + dist * llCos(angle),
-            gStartPos.y + dist * llSin(angle),
-            gStartPos.z + zOffset>;
+    vector wp = <gStartPos.x + dist * llCos(angle),
+                 gStartPos.y + dist * llSin(angle),
+                 gStartPos.z + zOffset>;
+    if (DEBUG) llOwnerSay("[Move|DBG] randomWaypoint -> " + (string)wp
+                          + "  dist=" + (string)dist
+                          + "  zOff=" + (string)zOffset);
+    return wp;
 }
 
 // ---- Move smoothly toward a target --------------------------
 moveTo(vector target)
 {
     vector dir  = llVecNorm(target - llGetPos());
-    // Face the direction of travel
-    rotation tRot = llRotBetween(<1.0, 0.0, 0.0>, <dir.x, dir.y, 0.0>);
-    llSetRot(tRot);
+    // Face the direction of travel only when there's a meaningful horizontal
+    // component – passing a zero vector to llRotBetween is undefined in LSL
+    // and will break the movement script (e.g. pure vertical avoidance).
+    vector hDir = <dir.x, dir.y, 0.0>;
+    if (llVecMag(hDir) > 0.01)
+    {
+        rotation tRot = llRotBetween(<1.0, 0.0, 0.0>, llVecNorm(hDir));
+        llSetRot(tRot);
+    }
     // Derive tau from speed so the drone moves at roughly CFG_SPEED m/s
     float dist = llVecMag(target - llGetPos());
     float tau  = dist / CFG_SPEED;
     if (tau < 0.1) tau = 0.1;   // Safety floor to avoid division-by-zero artefacts
+    if (DEBUG) llOwnerSay("[Move|DBG] moveTo " + (string)target
+                          + "  dist=" + (string)dist
+                          + "  tau=" + (string)tau
+                          + "  speed=" + (string)CFG_SPEED);
     llMoveToTarget(target, tau);
 }
 
@@ -102,6 +119,7 @@ default
 
         gStartPos  = llGetPos();
         gTargetPos = gStartPos;
+        if (DEBUG) llOwnerSay("[Move|DBG] state_entry: physics ON, buoyancy 1.0, startPos=" + (string)gStartPos);
     }
 
     link_message(integer sender, integer num, string str, key id)
@@ -115,6 +133,8 @@ default
             gRecalling = FALSE;
             gStartPos  = llGetPos();
             gTargetPos = randomWaypoint();
+            if (DEBUG) llOwnerSay("[Move|DBG] CMD_START received. startPos=" + (string)gStartPos
+                                  + "  firstTarget=" + (string)gTargetPos);
             llSetTimerEvent(CFG_UPDATE_INTERVAL);
             moveTo(gTargetPos);
         }
@@ -128,6 +148,7 @@ default
             gRecalling = FALSE;
             llSetTimerEvent(0.0);
             stopMoving();
+            if (DEBUG) llOwnerSay("[Move|DBG] CMD_STOP: all movement halted.");
         }
 
         // ---- Hover in place ---------------------------------
@@ -169,6 +190,8 @@ default
                 // Compute a new safe waypoint in the avoidance direction
                 gTargetPos = llGetPos() + gAvoidDir * CFG_AVOID_STEP
                              + <0.0, 0.0, CFG_AVOID_STEP * 0.5>;
+                if (DEBUG) llOwnerSay("[Move|DBG] OBSTACLE_DETECTED avoidDir=" + str
+                                      + "  newTarget=" + (string)gTargetPos);
                 moveTo(gTargetPos);
             }
         }
@@ -180,8 +203,15 @@ default
             {
                 gAvoiding  = FALSE;
                 gTargetPos = randomWaypoint();
+                if (DEBUG) llOwnerSay("[Move|DBG] OBSTACLE_CLEAR, resuming to " + (string)gTargetPos);
                 if (gRunning) moveTo(gTargetPos);
             }
+        }
+
+        // ---- Debug toggle -----------------------------------
+        else if (num == CMD_DEBUG)
+        {
+            DEBUG = (str == "on");
         }
 
         // ---- Recall to owner's position ---------------------
@@ -196,8 +226,14 @@ default
             {
                 vector ownerPos = llList2Vector(details, 0);
                 gTargetPos = ownerPos + <0.0, 0.0, CFG_HOVER_HEIGHT>;
+                if (DEBUG) llOwnerSay("[Move|DBG] CMD_RECALL: ownerPos=" + (string)ownerPos
+                                      + "  target=" + (string)gTargetPos);
                 moveTo(gTargetPos);
                 llSetTimerEvent(CFG_UPDATE_INTERVAL);
+            }
+            else if (DEBUG)
+            {
+                llOwnerSay("[Move|DBG] CMD_RECALL: llGetObjectDetails returned no data for owner!");
             }
         }
     }
@@ -237,7 +273,11 @@ default
 
         // Pick new waypoint when close enough to current target
         if (llVecMag(current - gTargetPos) < CFG_WAYPOINT_REACH && !gAvoiding)
+        {
             gTargetPos = randomWaypoint();
+            if (DEBUG) llOwnerSay("[Move|DBG] timer: waypoint reached, new target=" + (string)gTargetPos
+                                  + "  pos=" + (string)current);
+        }
 
         moveTo(gTargetPos);
     }
