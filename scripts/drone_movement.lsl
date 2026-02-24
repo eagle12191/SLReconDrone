@@ -3,10 +3,10 @@
 // File: drone_movement.lsl
 // ============================================================
 // Handles autonomous flight:
-//   • Random wandering within a configurable radius
-//   • Smooth movement toward waypoints via llMoveToTarget
-//   • Obstacle avoidance (reacts to sensor module messages)
-//   • Configurable speed, hover height, and wander radius
+//   - Random wandering within a configurable radius
+//   - Smooth movement toward waypoints via llMoveToTarget
+//   - Obstacle avoidance (reacts to sensor module messages)
+//   - Configurable speed, hover height, and wander radius
 //
 // Requires STATUS_PHYSICS = TRUE on the drone prim.
 // Uses llSetBuoyancy(1.0) to counteract gravity.
@@ -16,7 +16,7 @@
 integer CMD_START             = 100;
 integer CMD_STOP              = 101;
 integer CMD_HOVER             = 102;
-integer CMD_FPV_ON            = 103;   // (unused here – forwarded by main)
+integer CMD_FPV_ON            = 103;   // (unused here - forwarded by main)
 integer CMD_FPV_OFF           = 104;   // (unused here)
 integer CMD_STATUS            = 105;
 integer CMD_SET_SPEED         = 106;
@@ -51,7 +51,8 @@ vector  gAvoidDir  = ZERO_VECTOR;
 vector randomWaypoint()
 {
     float angle  = llFrand(TWO_PI);
-    float radius = (CFG_WANDER_RADIUS == 0.0) ? 256.0 : CFG_WANDER_RADIUS;  // 0 = unlimited
+    float radius = CFG_WANDER_RADIUS;
+    if (radius == 0.0) radius = 256.0;   // 0 = unlimited
     float dist   = 3.0 + llFrand(radius - 3.0);              // at least 3 m away
 
     // Height: vary around CFG_HOVER_HEIGHT with some randomness
@@ -73,12 +74,13 @@ moveTo(vector target)
 {
     vector dir  = llVecNorm(target - llGetPos());
     // Face the direction of travel only when there's a meaningful horizontal
-    // component – passing a zero vector to llRotBetween is undefined in LSL
+    // component - passing a zero vector to llRotBetween is undefined in LSL
     // and will break the movement script (e.g. pure vertical avoidance).
-    vector hDir = <dir.x, dir.y, 0.0>;
+    vector   hDir = <dir.x, dir.y, 0.0>;
+    rotation tRot;   // declared outside the if-block (required by SL Mono compiler)
     if (llVecMag(hDir) > 0.01)
     {
-        rotation tRot = llRotBetween(<1.0, 0.0, 0.0>, llVecNorm(hDir));
+        tRot = llRotBetween(<1.0, 0.0, 0.0>, llVecNorm(hDir));
         llSetRot(tRot);
     }
     // Derive tau from speed so the drone moves at roughly CFG_SPEED m/s
@@ -115,10 +117,11 @@ default
         llSetStatus(STATUS_PHYSICS, TRUE);
         llSetStatus(STATUS_ROTATE_X, FALSE);   // Keep drone level
         llSetStatus(STATUS_ROTATE_Y, FALSE);
-        llSetBuoyancy(1.0);                    // Neutrally buoyant – no sinking
+        llSetBuoyancy(1.0);                    // Neutrally buoyant - no sinking
 
         gStartPos  = llGetPos();
         gTargetPos = gStartPos;
+        llOwnerSay("[Move] Movement module ready.  startPos=" + (string)gStartPos);
         if (DEBUG) llOwnerSay("[Move|DBG] state_entry: physics ON, buoyancy 1.0, startPos=" + (string)gStartPos);
     }
 
@@ -133,6 +136,7 @@ default
             gRecalling = FALSE;
             gStartPos  = llGetPos();
             gTargetPos = randomWaypoint();
+            llOwnerSay("[Move] CMD_START - target=" + (string)gTargetPos);
             if (DEBUG) llOwnerSay("[Move|DBG] CMD_START received. startPos=" + (string)gStartPos
                                   + "  firstTarget=" + (string)gTargetPos);
             llSetTimerEvent(CFG_UPDATE_INTERVAL);
@@ -259,7 +263,7 @@ default
                     gRecalling = FALSE;
                     gHovering  = TRUE;
                     hoverInPlace();
-                    llOwnerSay("[Drone] Recalled – hovering near owner.");
+                    llOwnerSay("[Drone] Recalled - hovering near owner.");
                     return;
                 }
                 moveTo(gTargetPos);

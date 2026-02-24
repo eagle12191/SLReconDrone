@@ -7,8 +7,8 @@
 // focus point to match the drone's pose.
 //
 // PERMISSIONS : The owner must grant PERMISSION_CONTROL_CAMERA.
-//   • If the drone is ATTACHED, permission is requested on rez.
-//   • If the drone is REZZED, the owner must click the object
+//   - If the drone is ATTACHED, permission is requested on rez.
+//   - If the drone is REZZED, the owner must click the object
 //     (touch_start) to trigger the permission request, or the
 //     main script will request it when FPV_ON is received.
 //
@@ -24,7 +24,6 @@ integer CMD_DEBUG   = 109;
 float CFG_CAM_FORWARD_OFFSET = 0.2;    // Metres ahead of drone centre
 float CFG_CAM_UP_OFFSET      = 0.05;   // Metres above drone centre
 float CFG_CAM_FOCUS_DIST     = 12.0;   // Metres ahead for focus point
-float CFG_CAM_FOV            = 1.05;   // Field of view in radians (~60°)
 float CFG_CAM_LAG            = 0.05;   // Camera lag (0 = instant, 1 = sluggish)
 float CFG_UPDATE_RATE        = 0.1;    // Camera refresh interval in seconds
 
@@ -65,7 +64,6 @@ updateCamera()
         CAMERA_FOCUS,           focusPos,
         CAMERA_POSITION_LAG,    CFG_CAM_LAG,
         CAMERA_FOCUS_LAG,       CFG_CAM_LAG,
-        CAMERA_FOV,             CFG_CAM_FOV,
         CAMERA_POSITION_LOCKED, TRUE,
         CAMERA_FOCUS_LOCKED,    TRUE
     ]);
@@ -77,7 +75,7 @@ releaseCamera()
     llClearCameraParams();
     gFPVActive = FALSE;
     llSetTimerEvent(0.0);
-    llOwnerSay("[Camera] FPV disabled – camera returned to normal.");
+    llOwnerSay("[Camera] FPV disabled - camera returned to normal.");
 }
 
 // ---- Script body --------------------------------------------
@@ -93,12 +91,12 @@ default
             requestPermissions();
     }
 
-    // Owner touches the drone → request permissions (rezzed scenario)
+    // Owner touches the drone -> request permissions (rezzed scenario)
     touch_start(integer num_detected)
     {
         if (llDetectedKey(0) == llGetOwner() && !gPermsGranted)
         {
-            llOwnerSay("[Camera] Requesting camera permission…");
+            llOwnerSay("[Camera] Requesting camera permission...");
             requestPermissions();
         }
     }
@@ -114,7 +112,7 @@ default
             // If FPV was already requested before perms were granted, start now
             if (gFPVActive)
             {
-                dbg("FPV was pending – starting camera update loop");
+                dbg("FPV was pending - starting camera update loop");
                 llSetTimerEvent(CFG_UPDATE_RATE);
                 updateCamera();
             }
@@ -123,7 +121,7 @@ default
         {
             gPermsGranted = FALSE;
             dbg("PERMISSION_CONTROL_CAMERA DENIED");
-            llOwnerSay("[Camera] Camera permission denied – FPV unavailable.");
+            llOwnerSay("[Camera] Camera permission denied - FPV unavailable.");
         }
     }
 
@@ -136,7 +134,7 @@ default
             if (!gPermsGranted)
             {
                 dbg("CMD_FPV_ON: no perms yet, requesting");
-                llOwnerSay("[Camera] Requesting camera permission – please Accept.");
+                llOwnerSay("[Camera] Requesting camera permission - please Accept.");
                 requestPermissions();
             }
             else
@@ -178,7 +176,7 @@ default
         if (id == NULL_KEY)
             releaseCamera();   // Being detached
         else
-            requestPermissions();   // Being attached – request perms
+            requestPermissions();   // Being attached - request perms
     }
 
     on_rez(integer start_param)
