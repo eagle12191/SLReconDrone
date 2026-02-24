@@ -58,7 +58,7 @@ handleCommand(string raw)
         gRunning = TRUE;
         broadcast(CMD_START, "");
         broadcast(CMD_STATUS, "Drone started.");
-        llOwnerSay("[Drone] Started – flying autonomously.");
+        llOwnerSay("[Drone] Started - flying autonomously.");
     }
     else if (verb == "stop")
     {
@@ -120,7 +120,7 @@ handleCommand(string raw)
     else if (verb == "recall")
     {
         broadcast(CMD_RECALL, "");
-        llOwnerSay("[Drone] Recalling to your position…");
+        llOwnerSay("[Drone] Recalling to your position...");
     }
     else if (verb == "debug")
     {
@@ -145,20 +145,20 @@ handleCommand(string raw)
     else if (verb == "help")
     {
         llOwnerSay("[Drone] Commands (speak on /" + (string)CHAT_CHANNEL + "):\n"
-            + "  start       – begin autonomous flight\n"
-            + "  stop        – stop all movement\n"
-            + "  hover       – hold current position\n"
-            + "  fpv / fpv_off – toggle first-person camera\n"
-            + "  speed <n>   – set flight speed in m/s\n"
-            + "  height <n>  – set hover height in metres\n"
-            + "  recall      – fly back to your position\n"
-            + "  debug on/off – toggle debug logging\n"
-            + "  status      – show current state\n"
-            + "  help        – show this message");
+            + "  start       - begin autonomous flight\n"
+            + "  stop        - stop all movement\n"
+            + "  hover       - hold current position\n"
+            + "  fpv / fpv_off - toggle first-person camera\n"
+            + "  speed <n>   - set flight speed in m/s\n"
+            + "  height <n>  - set hover height in metres\n"
+            + "  recall      - fly back to your position\n"
+            + "  debug on/off - toggle debug logging\n"
+            + "  status      - show current state\n"
+            + "  help        - show this message");
     }
     else
     {
-        llOwnerSay("[Drone] Unknown command: \"" + raw + "\" – try: help");
+        llOwnerSay("[Drone] Unknown command: \"" + raw + "\" - try: help");
     }
 }
 

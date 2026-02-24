@@ -5,8 +5,8 @@
 // Casts rays ahead of the drone to detect obstacles and
 // broadcasts avoidance vectors to the movement module.
 //
-// Uses llCastRay in five directions (forward, ±left/right,
-// ±up/down relative to forward) for wide field sensing.
+// Uses llCastRay in five directions (forward, +/- left/right,
+// +/- up/down relative to forward) for wide field sensing.
 // Falls back to llSensor for nearby phantom/moving objects.
 // ============================================================
 
@@ -34,6 +34,23 @@ dbg(string msg)
     if (DEBUG) llOwnerSay("[Sensor|DBG] " + msg);
 }
 
+// ---- Inventory helper: check if a script exists --------------
+// Some simulators/regions can silently refuse to compile scripts
+// containing certain non-ASCII characters. If movement isn't present
+// (or didn't compile), the drone will never move.
+string findScriptNameContaining(string needleLower)
+{
+    integer count = llGetInventoryNumber(INVENTORY_SCRIPT);
+    integer idx;
+    for (idx = 0; idx < count; idx++)
+    {
+        string name = llGetInventoryName(INVENTORY_SCRIPT, idx);
+        if (llSubStringIndex(llToLower(name), needleLower) != -1)
+            return name;
+    }
+    return "";
+}
+
 // ---- Cast rays and compute avoidance direction --------------
 detectObstacles()
 {
@@ -55,7 +72,7 @@ detectObstacles()
         vector dir      = llList2Vector(dirs, i);
         vector endpoint = pos + dir * CFG_RAY_DISTANCE;
 
-        // Cast ray – get hit position and surface normal
+        // Cast ray - get hit position and surface normal
         list result = llCastRay(pos, endpoint,
                                 [RC_DATA_FLAGS, RC_GET_NORMAL | RC_GET_ROOT_KEY]);
 
@@ -69,7 +86,7 @@ detectObstacles()
 
             // Ignore ground-plane hits: a nearly-upward normal whose hit point
             // is at or below the drone's own altitude is just terrain beneath
-            // the flight path – not a real forward obstacle.
+            // the flight path - not a real forward obstacle.
             if (hitNormal.z > 0.85 && hitPos.z <= pos.z + 0.5)
             {
                 dbg("ray dir[" + (string)i + "] ground-plane hit ignored (z="
@@ -95,7 +112,7 @@ detectObstacles()
         @next_ray;
     }
 
-    // No rays hit anything – clear the obstacle flag
+    // No rays hit anything - clear the obstacle flag
     if (gObstaclePresent)
     {
         gObstaclePresent = FALSE;
@@ -121,6 +138,13 @@ default
             gObstaclePresent = FALSE;
             dbg("CMD_START: sensor scanning started, interval=" + (string)CFG_SCAN_INTERVAL
                 + "  range=" + (string)CFG_SENSOR_RANGE);
+
+            // Quick sanity check: confirm movement script is present in Contents
+            // (helps diagnose "no movement" when only sensor/menu/main are running).
+            string moveScript = findScriptNameContaining("movement");
+            if (moveScript == "") dbg("No movement script found in Contents (no name contains 'movement')");
+            else dbg("Movement script found in Contents: \"" + moveScript + "\"");
+
             llSetTimerEvent(CFG_SCAN_INTERVAL);
             // Secondary sensor: detect nearby physical/moving objects
             llSensorRepeat("", NULL_KEY, ACTIVE | PASSIVE | SCRIPTED,
@@ -147,7 +171,7 @@ default
             detectObstacles();
     }
 
-    // llSensor callback – used as secondary detection for
+    // llSensor callback - used as secondary detection for
     // nearby objects that llCastRay might miss (e.g. fast movers)
     sensor(integer num_detected)
     {
@@ -171,7 +195,7 @@ default
 
     no_sensor()
     {
-        // Secondary sensor sees nothing – leave primary ray logic in control
+        // Secondary sensor sees nothing - leave primary ray logic in control
     }
 
     on_rez(integer start_param)

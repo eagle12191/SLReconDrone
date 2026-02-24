@@ -10,7 +10,7 @@
 // No other scripts need to be changed - this module sends
 // llMessageLinked commands exactly like the chat system does.
 //
-// LAYOUT  (SL fills dialog rows bottom-left → right):
+// LAYOUT  (SL fills dialog rows bottom-left -> right):
 //
 //   [ Height... ] [ Speed...  ] [   Start  ]
 //   [ Recall    ] [ Hover     ] [   Stop   ]
@@ -77,7 +77,7 @@ openMenu()
     gListenHandle = llListen(gChannel, "", llGetOwner(), "");
     llSetTimerEvent((float)LISTEN_TIMEOUT);
 
-    // Buttons listed bottom-left across rows (3 × 3 = 9 buttons)
+    // Buttons listed bottom-left across rows (3 x 3 = 9 buttons)
     llDialog(llGetOwner(),
         "\n=== Recon Drone ===\n\nChoose a command:",
         [BTN_STATUS, BTN_FPV_OFF, BTN_FPV_ON,
@@ -114,13 +114,13 @@ handleButton(string btn)
     {
         // openTextBox keeps a listen open – return without closeListens()
         openTextBox(PENDING_SPEED,
-            "Enter flight speed in m/s\n(e.g. 3.5  –  valid range: 0.1 to 20.0):");
+            "Enter flight speed in m/s\n(e.g. 3.5  -  valid range: 0.1 to 20.0):");
         return;
     }
     else if (btn == BTN_HEIGHT)
     {
         openTextBox(PENDING_HEIGHT,
-            "Enter hover height in metres\n(e.g. 5.0  –  valid range: 2.5 to 25.0):");
+            "Enter hover height in metres\n(e.g. 5.0  -  valid range: 2.5 to 25.0):");
         return;
     }
 
@@ -138,14 +138,14 @@ handleTextInput(string input)
         if (val > 0.0 && val <= 20.0)
             llMessageLinked(LINK_SET, CMD_SET_SPEED, (string)val, NULL_KEY);
         else
-            llOwnerSay("[Menu] Speed must be between 0.1 and 20.0 m/s – not changed.");
+            llOwnerSay("[Menu] Speed must be between 0.1 and 20.0 m/s - not changed.");
     }
     else if (gPending == PENDING_HEIGHT)
     {
         if (val >= 2.5 && val <= 25.0)
             llMessageLinked(LINK_SET, CMD_SET_HEIGHT, (string)val, NULL_KEY);
         else
-            llOwnerSay("[Menu] Height must be between 2.5 and 25.0 m – not changed.");
+            llOwnerSay("[Menu] Height must be between 2.5 and 25.0 m - not changed.");
     }
 
     closeListens();
@@ -161,7 +161,7 @@ default
         gPending      = PENDING_NONE;
     }
 
-    // Owner touches the drone → open menu
+    // Owner touches the drone -> open menu
     touch_start(integer num_detected)
     {
         if (llDetectedKey(0) == llGetOwner())
@@ -189,7 +189,7 @@ default
     timer()
     {
         closeListens();
-        llOwnerSay("[Menu] Menu timed out – touch the drone to reopen.");
+        llOwnerSay("[Menu] Menu timed out - touch the drone to reopen.");
     }
 
     on_rez(integer start_param)
